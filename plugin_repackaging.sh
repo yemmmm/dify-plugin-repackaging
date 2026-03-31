@@ -321,6 +321,17 @@ PY
 
 	[ ! -f "requirements.txt" ] && echo "✗ Error: requirements.txt not found" && exit 1
 
+	# Strip [dependency-groups] from pyproject.toml to prevent
+	# dify-plugin-daemon from attempting to install dev dependencies (black, pytest, ruff, etc.)
+	# in offline environments where pip cannot reach PyPI.
+	if [[ -f "pyproject.toml" ]]; then
+	  awk '
+	  /^\[dependency-groups\]/ { skip=1; next }
+	  /^\[/ { skip=0 }
+	  !skip { print }
+	  ' pyproject.toml > pyproject.toml.tmp && mv pyproject.toml.tmp pyproject.toml
+	  echo "✓ Stripped [dependency-groups] from pyproject.toml"
+	fi
 	# ============================================
 	# Step 3: Download Python dependencies as wheels
 	# ============================================
