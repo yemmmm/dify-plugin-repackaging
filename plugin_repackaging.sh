@@ -293,17 +293,14 @@ PY
 	fi
 
 	# 2b. Generate uv.lock (MUST run before [tool.uv] injection)
-	# uv.lock enables daemon's "uv sync" to skip full dependency resolution,
-	# avoiding cross-platform universal resolution that requires all platform-specific packages.
 	if [ -f "pyproject.toml" ] && command -v uv &> /dev/null; then
-			echo "Generating uv.lock file..."
-			uv lock ${UV_PLATFORM:+--python-platform ${UV_PLATFORM}} \
-					--python-version "${UV_PY_VERSION}" ${UV_PRERELEASE_FLAG}
-			if [[ $? -ne 0 ]]; then
-					echo "⚠ Warning: uv lock failed, daemon will do full resolution at runtime"
-			else
-					echo "✓ uv.lock generated successfully"
-			fi
+					echo "Generating uv.lock file..."
+					uv lock --python-version "${UV_PY_VERSION}" ${UV_PRERELEASE_FLAG}
+					if [[ $? -ne 0 ]]; then
+									echo "⚠ Warning: uv lock failed, daemon will do full resolution at runtime"
+					else
+									echo "✓ uv.lock generated successfully"
+					fi
 	fi
 
 	# 2c. Generate requirements.txt if not present
