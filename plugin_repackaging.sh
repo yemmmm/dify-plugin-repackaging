@@ -274,64 +274,69 @@ PY
 	fi
 
 	echo "✓ Configuration: platform=${UV_PLATFORM:-current}, python=$UV_PY_VERSION"
-
 	# ============================================
-	# Step 2: Generate requirements.txt from pyproject.toml
+	# Step 2: Process dependencies
 	# ============================================
 	echo ""
 	echo "=========================================="
 	echo "Step 2: Processing dependencies"
 	echo "=========================================="
 
-	# Inject [tool.uv] config to enable offline wheel usage
-	if [ -f "pyproject.toml" ]; then
-		echo "Found pyproject.toml, injecting [tool.uv] configuration..."
-		inject_uv_into_pyproject "pyproject.toml"
+	# 2a. Strip [dependency-groups] FIRST (before uv lock, so dev deps are excluded)
+	if [[ -f "pyproject.toml" ]]; then
+			awk '
+			/^\[dependency-groups\]/ { skip=1; next }
+			/^\[/ { skip=0 }
+			!skip { print }
+			' pyproject.toml > pyproject.toml.tmp && mv pyproject.toml.tmp pyproject.toml
+			echo "✓ Stripped [dependency-groups] from pyproject.toml"
 	fi
 
-	if [ -f "pyproject.toml" ] && [ ! -f "requirements.txt" ]; then
-		if command -v uv &> /dev/null; then
+	# 2b. Generate uv.lock (MUST run before [tool.uv] injection)
+	# uv.lock enables daemon's "uv sync" to skip full dependency resolution,
+	# avoiding cross-platform universal resolution that requires all platform-specific packages.
+	if [ -f "pyproject.toml" ] && command -v uv &> /dev/null; then
 			echo "Generating uv.lock file..."
 			uv lock ${UV_PLATFORM:+--python-platform ${UV_PLATFORM}} \
-				--python-version "${UV_PY_VERSION}" ${UV_PRERELEASE_FLAG}
+					--python-version "${UV_PY_VERSION}" ${UV_PRERELEASE_FLAG}
 			if [[ $? -ne 0 ]]; then
-				echo "✗ Error: uv lock failed"
-				exit 1
+					echo "⚠ Warning: uv lock failed, daemon will do full resolution at runtime"
+			else
+					echo "✓ uv.lock generated successfully"
 			fi
-			echo "✓ uv.lock generated successfully"
+	fi
 
-			echo "Exporting requirements.txt from uv.lock..."
-			uv export --format requirements-txt -o requirements.txt \
-				${UV_PLATFORM:+--python-platform ${UV_PLATFORM}} \
-				--python-version "${UV_PY_VERSION}" ${UV_PRERELEASE_FLAG}
-			if [[ $? -ne 0 ]]; then
-				echo "✗ Error: uv export failed"
-				exit 1
+	# 2c. Generate requirements.txt if not present
+	if [ -f "pyproject.toml" ] && [ ! -f "requirements.txt" ]; then
+			if command -v uv &> /dev/null; then
+					echo "Exporting requirements.txt from uv.lock..."
+					uv export --format requirements-txt -o requirements.txt \
+							${UV_PLATFORM:+--python-platform ${UV_PLATFORM}} \
+							--python-version "${UV_PY_VERSION}" ${UV_PRERELEASE_FLAG}
+					if [[ $? -ne 0 ]]; then
+							echo "✗ Error: uv export failed"
+							exit 1
+					fi
+					echo "✓ requirements.txt generated successfully"
+			else
+					echo "✗ Error: pyproject.toml found but uv is not installed"
+					echo "  Please install uv: pip install uv"
+					echo "  Or commit requirements.txt with the plugin"
+					exit 1
 			fi
-			echo "✓ requirements.txt generated successfully"
-		else
-			echo "✗ Error: pyproject.toml found but uv is not installed"
-			echo "  Please install uv: pip install uv"
-			echo "  Or commit requirements.txt with the plugin"
-			exit 1
-		fi
 	elif [ -f "requirements.txt" ]; then
-		echo "✓ Using existing requirements.txt"
+			echo "✓ Using existing requirements.txt"
 	fi
 
 	[ ! -f "requirements.txt" ] && echo "✗ Error: requirements.txt not found" && exit 1
 
-	# Strip [dependency-groups] from pyproject.toml to prevent
-	# dify-plugin-daemon from attempting to install dev dependencies (black, pytest, ruff, etc.)
-	# in offline environments where pip cannot reach PyPI.
-	if [[ -f "pyproject.toml" ]]; then
-	  awk '
-	  /^\[dependency-groups\]/ { skip=1; next }
-	  /^\[/ { skip=0 }
-	  !skip { print }
-	  ' pyproject.toml > pyproject.toml.tmp && mv pyproject.toml.tmp pyproject.toml
-	  echo "✓ Stripped [dependency-groups] from pyproject.toml"
+	# 2d. Inject [tool.uv] AFTER resolution (for daemon's offline usage)
+	# This MUST happen after uv lock, otherwise no-index=true would block resolution
+	if [ -f "pyproject.toml" ]; then
+			echo "Injecting [tool.uv] configuration for offline installation..."
+			inject_uv_into_pyproject "pyproject.toml"
 	fi
+
 	# ============================================
 	# Step 3: Download Python dependencies as wheels
 	# ============================================
@@ -343,9 +348,14 @@ PY
 	[ -n "$PIP_PLATFORM" ] && echo "Platform: ${RAW_PLATFORM}"
 
 	mkdir -p ./wheels
-	echo "Downloading wheels to ./wheels/..."
-	${PIP_CMD} download ${PIP_PLATFORM} --prefer-binary -r requirements.txt -d ./wheels \
-		--index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com
+	# Download workaround packages for old dify-plugin-daemon / uv versions
+	# that incorrectly evaluate PEP 508 conditional dependencies across platforms.
+	# e.g. gevent requires cffi only on win32, tqdm requires colorama only on win32,
+	# but old uv versions treat them as universally required.
+	echo "Downloading workaround packages for daemon compatibility..."
+	${PIP_CMD} download --prefer-binary -d ./wheels \
+	  cffi pycparser colorama \
+	  --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || true
 	if [[ $? -ne 0 ]]; then
 		echo "✗ Error: Failed to download dependencies"
 		exit 1
@@ -371,7 +381,7 @@ PY
 	if [[ "linux" == "$OS_TYPE" ]]; then
 		sed -i '1i\--no-index --find-links=./wheels/' requirements.txt
 		[ -f ".difyignore" ] && IGNORE_PATH=.difyignore || IGNORE_PATH=.gitignore
-		[ -f "$IGNORE_PATH" ] && sed -i '/^wheels\//d' "${IGNORE_PATH}"
+		[ -f "$IGNORE_PATH" ] && sed -i -e '/^wheels\//d' -e '/^uv\.lock/d' "${IGNORE_PATH}"
 	elif [[ "darwin" == "$OS_TYPE" ]]; then
 		sed -i ".bak" '1i\--no-index --find-links=./wheels/' requirements.txt && rm -f requirements.txt.bak
 		[ -f ".difyignore" ] && IGNORE_PATH=.difyignore || IGNORE_PATH=.gitignore
