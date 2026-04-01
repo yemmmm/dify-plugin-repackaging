@@ -347,31 +347,25 @@ PY
 	echo "Index URL: ${PIP_MIRROR_URL}"
 	[ -n "$PIP_PLATFORM" ] && echo "Platform: ${RAW_PLATFORM}"
 
-	mkdir -p ./wheels
-	# Download workaround packages for old dify-plugin-daemon / uv versions
-	# that incorrectly evaluate PEP 508 conditional dependencies across platforms.
-	# e.g. gevent requires cffi only on win32, tqdm requires colorama only on win32,
-	# but old uv versions treat them as universally required.
-	echo "Downloading workaround packages for daemon compatibility..."
-	${PIP_CMD} download --prefer-binary -d ./wheels \
-	  cffi pycparser colorama \
-	  --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || true
-	if [[ $? -ne 0 ]]; then
-		echo "✗ Error: Failed to download dependencies"
-		exit 1
-	fi
+        mkdir -p ./wheels
+        echo "Downloading wheels to ./wheels/..."
+        ${PIP_CMD} download ${PIP_PLATFORM} --prefer-binary -r requirements.txt -d ./wheels \
+                --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com
+        if [[ $? -ne 0 ]]; then
+                echo "✗ Error: Failed to download dependencies"
+                exit 1
+        fi
 
-	# Count downloaded wheels
-	WHEEL_COUNT=$(ls -1 ./wheels/*.whl 2>/dev/null | wc -l)
-	echo "✓ Downloaded $WHEEL_COUNT wheel packages"
+        # Count downloaded wheels
+        WHEEL_COUNT=$(ls -1 ./wheels/*.whl 2>/dev/null | wc -l)
+        echo "✓ Downloaded $WHEEL_COUNT wheel packages"
 
-	# Download workaround packages for old dify-plugin-daemon versions
-	# that incorrectly evaluate conditional dependencies (PEP 508 markers)
-	# e.g. gevent's cffi dep is Windows-only but old uv treats it as required
-	echo "Downloading workaround packages for daemon compatibility..."
-	${PIP_CMD} download ${PIP_PLATFORM} --prefer-binary -d ./wheels \
-	  cffi pycparser \
-	  --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || true
+        # Download workaround packages for old dify-plugin-daemon / uv versions
+        # that incorrectly evaluate PEP 508 conditional dependencies across platforms.
+        echo "Downloading workaround packages for daemon compatibility..."
+        ${PIP_CMD} download --prefer-binary -d ./wheels \
+          cffi pycparser colorama \
+          --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || truetrue
 	  
 	# ============================================
 	# Step 4: Update requirements.txt for offline usage
