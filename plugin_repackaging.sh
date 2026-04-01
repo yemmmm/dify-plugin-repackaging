@@ -355,6 +355,14 @@ PY
 	WHEEL_COUNT=$(ls -1 ./wheels/*.whl 2>/dev/null | wc -l)
 	echo "✓ Downloaded $WHEEL_COUNT wheel packages"
 
+	# Download workaround packages for old dify-plugin-daemon versions
+	# that incorrectly evaluate conditional dependencies (PEP 508 markers)
+	# e.g. gevent's cffi dep is Windows-only but old uv treats it as required
+	echo "Downloading workaround packages for daemon compatibility..."
+	${PIP_CMD} download ${PIP_PLATFORM} --prefer-binary -d ./wheels \
+	  cffi pycparser \
+	  --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || true
+	  
 	# ============================================
 	# Step 4: Update requirements.txt for offline usage
 	# ============================================
