@@ -295,7 +295,7 @@ PY
 	# 2b. Generate uv.lock (MUST run before [tool.uv] injection)
 	if [ -f "pyproject.toml" ] && command -v uv &> /dev/null; then
 					echo "Generating uv.lock file..."
-					uv lock --python-version "${UV_PY_VERSION}" ${UV_PRERELEASE_FLAG}
+					uv lock --python-version "${UV_PY_VERSION}" ${UV_PLATFORM:+--python-platform ${UV_PLATFORM}} ${UV_PRERELEASE_FLAG}
 					if [[ $? -ne 0 ]]; then
 									echo "⚠ Warning: uv lock failed, daemon will do full resolution at runtime"
 					else
@@ -360,7 +360,7 @@ PY
         # Download workaround packages for old dify-plugin-daemon / uv versions
         # that incorrectly evaluate PEP 508 conditional dependencies across platforms.
         echo "Downloading workaround packages for daemon compatibility..."
-        ${PIP_CMD} download --prefer-binary -d ./wheels \
+        ${PIP_CMD} download ${PIP_PLATFORM} --prefer-binary -d ./wheels \
           cffi pycparser colorama \
           --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || truetrue
 	  
