@@ -359,10 +359,12 @@ PY
 
         # Download workaround packages for old dify-plugin-daemon / uv versions
         # that incorrectly evaluate PEP 508 conditional dependencies across platforms.
-        echo "Downloading workaround packages for daemon compatibility..."
-        ${PIP_CMD} download ${PIP_PLATFORM} --prefer-binary -d ./wheels \
-          cffi pycparser colorama \
-          --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || truetrue
+		if [[ "$UV_LOCK_FAILED" == "1" ]]; then
+		  echo "uv lock failed, downloading workaround packages..."
+		  ${PIP_CMD} download ${PIP_PLATFORM} --prefer-binary -d ./wheels \
+			cffi pycparser colorama \
+			--index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || true
+		fi
 	  
 	# ============================================
 	# Step 4: Update requirements.txt for offline usage
