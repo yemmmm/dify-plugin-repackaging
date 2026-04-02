@@ -108,6 +108,73 @@ github(){
 	repackage ${PLUGIN_PACKAGE_PATH}
 }
 
+url(){
+	if [[ -z "$2" ]]; then
+		echo ""
+		echo "Usage: "$0" url [marketplace URL] [plugin version (optional, latest if omitted)]"
+		echo "Example:"
+		echo "	"$0" url https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible"
+		echo "	"$0" url https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible 0.0.9"
+		echo ""
+		exit 1
+	fi
+	PLUGIN_URL="${2%/}"
+
+	# Parse URL: extract author and plugin name from /plugin/{author}/{name}
+	PLUGIN_PATH="${PLUGIN_URL#*/plugin/}"
+	PLUGIN_AUTHOR=$(echo "$PLUGIN_PATH" | cut -d'/' -f1)
+	PLUGIN_NAME=$(echo "$PLUGIN_PATH" | cut -d'/' -f2)
+
+	if [[ -z "$PLUGIN_AUTHOR" || -z "$PLUGIN_NAME" ]]; then
+		echo "✗ Error: Invalid marketplace URL"
+		echo "  Expected format: https://marketplace.dify.ai/plugin/{author}/{name}"
+		exit 1
+	fi
+
+	PLUGIN_VERSION="${3:-}"
+
+	# If version not provided, fetch latest from marketplace API
+	if [[ -z "$PLUGIN_VERSION" ]]; then
+		echo "No version specified, fetching latest version..."
+		PLUGIN_INFO_URL="${MARKETPLACE_API_URL}/api/v1/plugins/${PLUGIN_AUTHOR}/${PLUGIN_NAME}"
+		PLUGIN_VERSION=$(curl -sf "$PLUGIN_INFO_URL" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data.get('data', {}).get('plugin', {}).get('latest_version', ''))
+" 2>/dev/null)
+
+		if [[ -z "$PLUGIN_VERSION" ]]; then
+			echo "✗ Error: Failed to fetch latest version from ${PLUGIN_INFO_URL}"
+			exit 1
+		fi
+		echo "✓ Latest version: ${PLUGIN_VERSION}"
+	fi
+
+	PLUGIN_PACKAGE_PATH=${CURR_DIR}/${PLUGIN_AUTHOR}-${PLUGIN_NAME}_${PLUGIN_VERSION}.difypkg
+	PLUGIN_DOWNLOAD_URL=${MARKETPLACE_API_URL}/api/v1/plugins/${PLUGIN_AUTHOR}/${PLUGIN_NAME}/${PLUGIN_VERSION}/download
+
+	echo ""
+	echo "=========================================="
+	echo "Downloading from Dify Marketplace (URL mode)"
+	echo "=========================================="
+	echo "Author: ${PLUGIN_AUTHOR}"
+	echo "Plugin: ${PLUGIN_NAME}"
+	echo "Version: ${PLUGIN_VERSION}"
+	echo "URL: ${PLUGIN_DOWNLOAD_URL}"
+
+	curl -L -o ${PLUGIN_PACKAGE_PATH} ${PLUGIN_DOWNLOAD_URL}
+	if [[ $? -ne 0 ]]; then
+		echo "✗ Error: Download failed"
+		echo "  Please check the plugin URL and version"
+		exit 1
+	fi
+
+	DOWNLOADED_SIZE=$(du -h "${PLUGIN_PACKAGE_PATH}" | cut -f1)
+	echo "✓ Downloaded successfully (${DOWNLOADED_SIZE})"
+
+	repackage ${PLUGIN_PACKAGE_PATH}
+}
+
 _local(){
 	echo $2
 	if [[ -z "$2" ]]; then
@@ -428,7 +495,7 @@ install_unzip(){
 }
 
 print_usage() {
-	echo "usage: $0 [-p platform] [-s package_suffix] [-R] {market|github|local}"
+	echo "usage: $0 [-p platform] [-s package_suffix] [-R] {market|github|url|local}"
 	echo "-p platform: python packages' platform. Using for crossing repacking.
         For example: -p manylinux2014_x86_64 or -p manylinux2014_aarch64"
 	echo "-s package_suffix: The suffix name of the output offline package.
@@ -455,6 +522,9 @@ case "$1" in
 	;;
 	'github')
 	github $@
+	;;
+	'url')
+	url $@
 	;;
 	'local')
 	_local $@

@@ -3,17 +3,13 @@ name: Repackage Dify Plugin
 on:
   workflow_dispatch:
     inputs:
-      plugin_author:
-        description: "plugin author"
-        required: true
-        type: string
-      plugin_name:
-        description: "plugin name"
+      plugin_url:
+        description: "Plugin marketplace URL (e.g. https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible)"
         required: true
         type: string
       plugin_version:
-        description: "plugin version"
-        required: true
+        description: "Plugin version (optional, latest version will be used if omitted)"
+        required: false
         type: string
       platform_arm:
         description: "Use ARM platform (true = manylinux_2_17_aarch64, false = manylinux_2_17_x86_64)"
@@ -23,12 +19,14 @@ on:
 jobs:
   repackage:
     runs-on: ubuntu-latest
+    env:
+      PLUGIN_URL: ${{ inputs.plugin_url }}
+      PLUGIN_VERSION: ${{ inputs.plugin_version }}
     steps:
       - name: Print workflow inputs
         run: |
-          echo "plugin_author  = ${{ inputs.plugin_author }}"
-          echo "plugin_name    = ${{ inputs.plugin_name }}"
-          echo "plugin_version = ${{ inputs.plugin_version }}"
+          echo "plugin_url     = ${PLUGIN_URL}"
+          echo "plugin_version = ${PLUGIN_VERSION}"
           echo "platform_arm   = ${{ inputs.platform_arm }}"
 
       - name: Resolve platform
@@ -54,14 +52,12 @@ jobs:
 
       - name: Run plugin repackaging script
         run: |
+          ARGS=(-p "$PIP_PLATFORM" -s "$PACKAGE_SUFFIX" url "$PLUGIN_URL")
+          if [ -n "$PLUGIN_VERSION" ]; then
+            ARGS+=("$PLUGIN_VERSION")
+          fi
           PIP_MIRROR_URL=https://pypi.org/simple \
-          ./plugin_repackaging.sh \
-          -p ${{ env.PIP_PLATFORM }} \
-          -s ${{ env.PACKAGE_SUFFIX }} \
-          market \
-          "${{ github.event.inputs.plugin_author }}" \
-          "${{ github.event.inputs.plugin_name }}" \
-          "${{ github.event.inputs.plugin_version }}"
+          ./plugin_repackaging.sh "${ARGS[@]}"
 
       - name: Find repackaged artifact
         run: |
@@ -70,7 +66,7 @@ jobs:
             echo "No *-${PACKAGE_SUFFIX}.difypkg artifact found!"
             exit 1
           fi
-      
+
           echo "ARTIFACT_PATH=$ARTIFACT_PATH" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=$(basename "$ARTIFACT_PATH")" >> $GITHUB_ENV
 
