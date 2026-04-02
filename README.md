@@ -1,9 +1,28 @@
 ## Dify 1.0 Plugin Downloading and Repackaging
+
+### Quick Start (Local) 快速开始（本地）
+
+```bash
+git clone https://github.com/yemmmm/dify-plugin-repackaging.git
+cd dify-plugin-repackaging
+```
+
+```bash
+# Download latest version and repackage (下载最新版本并重新打包)
+./repack.sh https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible
+
+# Specify version (指定版本)
+./repack.sh https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible 0.0.9
+
+# Target ARM platform (打包 ARM 平台)
+./repack.sh https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible --arm
+```
+
 ### How To Use With Github Action
 1. Fork this repository
 2. Open the GitHub page of your forked repository
 [https://github.com/{your_username}/dify-sandbox-python-requirements-download]()
-3. Run workflow
+3. Run workflow — fill in **Plugin marketplace URL** (required) and **Plugin version** (optional, defaults to latest)
 ![run_github_action_1](images/run_github_action_1.png)
 ![run_github_action_2](images/run_github_action_2.png)
 4. Download artifact
@@ -14,7 +33,7 @@
 1.change param in dockerfile
 
 ```dockerfile
-CMD ["./plugin_repackaging.sh", "-p", "manylinux_2_17_x86_64", "market", "antv", "visualization", "0.1.7"] 
+CMD ["./plugin_repackaging.sh", "-p", "manylinux_2_17_x86_64", "url", "https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible"]
 ```
 
 2.build
@@ -37,7 +56,7 @@ docker run -v %cd%:/app dify-plugin-repackaging
 
 linux
 ```bash
-docker run -v $(pwd):/app dify-plugin-repackaging ./plugin_repackaging.sh -p manylinux_2_17_x86_64 market antv visualization 0.1.7
+docker run -v $(pwd):/app dify-plugin-repackaging ./repack.sh https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible 0.0.9
 ```
 
 ### Prerequisites
@@ -51,15 +70,32 @@ Operating System: Linux amd64/aarch64, MacOS x86_64/arm64
 
 Python version: Should be as the same as the version in `dify-plugin-daemon` which is currently 3.12.x
 
-
 #### Clone
 ```shell
 git clone https://github.com/junjiem/dify-plugin-repackaging.git
 ```
 
-
-
 ### Description
+
+#### By Marketplace URL (Recommended)
+
+The easiest way to repackage a plugin — just pass its marketplace page URL.
+
+最简单的方式 —— 直接传入插件商城页面 URL 即可。
+
+```shell
+# Latest version
+./repack.sh https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible
+
+# Specific version
+./repack.sh https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible 0.0.9
+```
+
+Or using the underlying command directly:
+```shell
+./plugin_repackaging.sh url https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible
+./plugin_repackaging.sh url https://marketplace.dify.ai/plugin/langgenius/openai_api_compatible 0.0.9
+```
 
 #### From the Dify Marketplace downloading and repackaging
 
@@ -75,8 +111,6 @@ git clone https://github.com/junjiem/dify-plugin-repackaging.git
 
 ![langgenius-agent](images/langgenius-agent.png)
 
-
-
 #### From the Github downloading and repackaging
 
 ![github](images/github.png)
@@ -90,8 +124,6 @@ git clone https://github.com/junjiem/dify-plugin-repackaging.git
 ```
 
 ![junjiem-mcp_sse](images/junjiem-mcp_sse.png)
-
-
 
 #### Local Dify package repackaging
 
@@ -107,10 +139,10 @@ git clone https://github.com/junjiem/dify-plugin-repackaging.git
 
 #### Platform Crossing Repacking
 
-For repacking the plugins in different platforms between operating and running environment, 
+For repacking the plugins in different platforms between operating and running environment,
 please using `-p` option with a pip platform string.
 
-Typically, uses `manylinux2014_x86_64` for plugins running on an `x86_64/amd64` OS, 
+Typically, uses `manylinux2014_x86_64` for plugins running on an `x86_64/amd64` OS,
 and `manylinux2014_aarch64` for `aarch64/arm64`.
 
 ### Update Dify platform env  Dify平台放开限制
@@ -130,8 +162,6 @@ and `manylinux2014_aarch64` for `aarch64/arm64`.
 - 在 .env 配置文件将 `NGINX_CLIENT_MAX_BODY_SIZE` 增大为 `500M`，Nginx客户端将允许上传 500M 大小以内的内容。
 
 
-
-
 ### Installing Plugins via Local 通过本地安装插件
 
 Visit the Dify platform's plugin management page, choose Local Package File to complete installation.
@@ -141,8 +171,6 @@ Visit the Dify platform's plugin management page, choose Local Package File to c
 ![install_plugin_via_local](./images/install_plugin_via_local.png)
 
 
-
 ### Star history
 
-[![Star History Chart](https://api.star-history.com/svg?repos=junjiem/dify-plugin-repackaging&type=Date)](https://star-history.com/#junjiem/dify-plugin-repackaging&Date)
-
+[![Star History Chart](https://api.star-history.com/svg?repos=junjiem/dify-plugin-repackaging&type=Date)](https://www.star-history.com/#junjiem/dify-plugin-repackaging&Date)
