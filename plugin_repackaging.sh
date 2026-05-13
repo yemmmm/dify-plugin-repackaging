@@ -421,19 +421,21 @@ PY
                 exit 1
         fi
 
+        # Download platform-conditional packages that pip might have skipped due to
+        # markers (e.g. sys_platform == "win32"). Old dify-plugin-daemon / uv versions
+        # (uv 0.9.26) incorrectly evaluate PEP 508 conditional dependencies when
+        # resolving with no-index=true, requiring ALL transitive deps to be present
+        # in the local wheels regardless of whether the marker matches the current
+        # platform. Always download these to ensure offline installation works.
+        echo "Downloading platform-conditional packages (cffi, pycparser, colorama)..."
+        ${PIP_CMD} download ${PIP_PLATFORM} --prefer-binary -d ./wheels \
+                cffi pycparser colorama \
+                --index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || true
+
         # Count downloaded wheels
         WHEEL_COUNT=$(ls -1 ./wheels/*.whl 2>/dev/null | wc -l)
-        echo "✓ Downloaded $WHEEL_COUNT wheel packages"
+        echo "✓ Downloaded $WHEEL_COUNT wheel packages (including platform-conditional)"
 
-        # Download workaround packages for old dify-plugin-daemon / uv versions
-        # that incorrectly evaluate PEP 508 conditional dependencies across platforms.
-		if [[ "$UV_LOCK_FAILED" == "1" ]]; then
-		  echo "uv lock failed, downloading workaround packages..."
-		  ${PIP_CMD} download ${PIP_PLATFORM} --prefer-binary -d ./wheels \
-			cffi pycparser colorama \
-			--index-url ${PIP_MIRROR_URL} --trusted-host mirrors.aliyun.com 2>/dev/null || true
-		fi
-	  
 	# ============================================
 	# Step 4: Update requirements.txt for offline usage
 	# ============================================
