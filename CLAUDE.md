@@ -26,7 +26,7 @@ Steps must run in order due to dependencies:
 2. **Strip `[dependency-groups]`** from `pyproject.toml` — removes dev dependencies before resolution
 3. **Generate `uv.lock`** using `uv lock` — MUST run before `[tool.uv]` injection, because `no-index = true` would block resolution
 4. **Export `requirements.txt`** from `uv.lock` via `uv export` (only if no existing `requirements.txt`)
-5. **Inject `[tool.uv]`** into `pyproject.toml` — adds `no-index = true`, `find-links = ["./wheels"]`, `prerelease = "allow"` for offline daemon usage
+5. **Inject `[tool.uv]`** into `pyproject.toml` — adds `find-links = ["./wheels"]`, `prerelease = "allow"` (NOTE: `no-index` is intentionally omitted to allow old daemon uv versions to resolve transitive dependencies)
 6. **Download wheels** via `pip download` into `./wheels/`, plus workaround packages (`cffi`, `pycparser`, `colorama`) for daemon compatibility
 7. **Update `requirements.txt`** — prepend `--no-index --find-links=./wheels/`
 8. **Package** using `dify-plugin-<os>-<arch>` binary from the repo root

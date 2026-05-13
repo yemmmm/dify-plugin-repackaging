@@ -224,11 +224,14 @@ repackage(){
 		local PYFILE="$1"
 		[ -f "$PYFILE" ] || return 0
 	awk '
-		BEGIN { in_uv=0; saw_uv=0; saw_no=0; saw_find=0; saw_pre=0 }
-		function print_missing(){ if (!saw_no) print "no-index = true"; if (!saw_find) print "find-links = [\"./wheels\"]"; if (!saw_pre) print "prerelease = \"allow\"" }
-		/^[ \t]*\[tool\.uv\][ \t]*$/ { saw_uv=1; in_uv=1; saw_no=0; saw_find=0; saw_pre=0; print; next }
+		BEGIN { in_uv=0; saw_uv=0; saw_find=0; saw_pre=0 }
+		function print_missing(){
+			if (!saw_find) print "find-links = [\"./wheels\"]"
+			if (!saw_pre) print "prerelease = \"allow\""
+		}
+		/^[ \t]*\[tool\.uv\][ \t]*$/ { saw_uv=1; in_uv=1; saw_find=0; saw_pre=0; print; next }
 		{ if (in_uv && $0 ~ /^[ \t]*\[/) { print_missing(); in_uv=0 } }
-		{ if (in_uv && $0 ~ /^[ \t]*no-index[ \t]*=/) { print "no-index = true"; saw_no=1; next } }
+		{ if (in_uv && $0 ~ /^[ \t]*no-index[ \t]*=/) { next } }
 		{ if (in_uv && $0 ~ /^[ \t]*find-links[ \t]*=/) { print "find-links = [\"./wheels\"]"; saw_find=1; next } }
 		{ if (in_uv && $0 ~ /^[ \t]*prerelease[ \t]*=/) { print "prerelease = \"allow\""; saw_pre=1; next } }
 		{ print }
@@ -237,13 +240,12 @@ repackage(){
 			if (!saw_uv) {
 				print ""
 				print "[tool.uv]"
-				print "no-index = true"
 				print "find-links = [\"./wheels\"]"
 				print "prerelease = \"allow\""
 			}
 		}
 		' "$PYFILE" > "$PYFILE.tmp" && mv "$PYFILE.tmp" "$PYFILE"
-		echo "Injected [tool.uv] into $PYFILE"
+		echo "Injected [tool.uv] into $PYFILE (find-links only, no no-index)"
 	}
 
 	if python3 -m pip --version &> /dev/null 2>&1; then
