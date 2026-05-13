@@ -56,16 +56,22 @@ if [[ -z "$URL" ]]; then
 fi
 
 # Build arguments for plugin_repackaging.sh
+HOST_ARCH=$(uname -m)
+TARGET_IS_ARM=$ARM_FLAG
+HOST_IS_ARM=0
+[[ "$HOST_ARCH" == "arm64" || "$HOST_ARCH" == "aarch64" ]] && HOST_IS_ARM=1
+
 ARGS=()
-if [[ "$ARM_FLAG" -eq 1 ]]; then
-	ARCH=$(uname -m)
-	if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
-		ARGS+=(-p manylinux_2_24_aarch64 -s offline)
-	else
+if [[ "$HOST_IS_ARM" != "$TARGET_IS_ARM" ]]; then
+	# Cross-compile: host and target architectures differ
+	if [[ "$TARGET_IS_ARM" -eq 1 ]]; then
 		ARGS+=(-p manylinux_2_24_aarch64 -s offline-arm)
+	else
+		ARGS+=(-p manylinux_2_24_x86_64 -s offline)
 	fi
 else
-	ARGS+=(-p manylinux_2_24_x86_64 -s offline)
+	# Native build: no platform constraint, pip downloads all compatible wheels
+	ARGS+=(-s offline)
 fi
 
 ARGS+=(url "$URL")

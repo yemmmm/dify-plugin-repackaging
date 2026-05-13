@@ -12,7 +12,7 @@ on:
         required: false
         type: string
       platform_arm:
-        description: "Use ARM platform (true = manylinux_2_24_aarch64, false = manylinux_2_24_x86_64)"
+        description: "Build for ARM platform (cross-compile from x86_64)"
         required: true
         default: "false"
 
@@ -32,10 +32,10 @@ jobs:
       - name: Resolve platform
         run: |
           if [ "${{ inputs.platform_arm }}" = "true" ]; then
-            echo "PIP_PLATFORM=manylinux_2_24_aarch64" >> "$GITHUB_ENV"
+            echo "PLATFORM_ARG=-p manylinux_2_24_aarch64" >> "$GITHUB_ENV"
             echo "PACKAGE_SUFFIX=offline-arm" >> "$GITHUB_ENV"
           else
-            echo "PIP_PLATFORM=manylinux_2_24_x86_64" >> "$GITHUB_ENV"
+            echo "PLATFORM_ARG=" >> "$GITHUB_ENV"
             echo "PACKAGE_SUFFIX=offline" >> "$GITHUB_ENV"
           fi
 
@@ -52,7 +52,10 @@ jobs:
 
       - name: Run plugin repackaging script
         run: |
-          ARGS=(-p "$PIP_PLATFORM" -s "$PACKAGE_SUFFIX" url "$PLUGIN_URL")
+          ARGS=(-s "$PACKAGE_SUFFIX" url "$PLUGIN_URL")
+          if [ -n "$PLATFORM_ARG" ]; then
+            ARGS=($PLATFORM_ARG "${ARGS[@]}")
+          fi
           if [ -n "$PLUGIN_VERSION" ]; then
             ARGS+=("$PLUGIN_VERSION")
           fi
