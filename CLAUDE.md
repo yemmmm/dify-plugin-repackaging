@@ -26,10 +26,11 @@ Steps must run in order due to dependencies:
 2. **Strip `[dependency-groups]`** from `pyproject.toml` — removes dev dependencies before resolution
 3. **Generate `uv.lock`** using `uv lock` — MUST run before `[tool.uv]` injection, because `no-index = true` would block resolution
 4. **Export `requirements.txt`** from `uv.lock` via `uv export` (only if no existing `requirements.txt`)
-5. **Inject `[tool.uv]`** into `pyproject.toml` — adds `find-links = ["./wheels"]`, `prerelease = "allow"` (NOTE: `no-index` is intentionally omitted to allow old daemon uv versions to resolve transitive dependencies)
+5. **Inject `[tool.uv]`** into `pyproject.toml` — adds `no-index = true`, `find-links = ["./wheels"]`, `prerelease = "allow"` for offline daemon usage
 6. **Download wheels** via `pip download` into `./wheels/`, plus workaround packages (`cffi`, `pycparser`, `colorama`) for daemon compatibility
 7. **Update `requirements.txt`** — prepend `--no-index --find-links=./wheels/`
-8. **Package** using `dify-plugin-<os>-<arch>` binary from the repo root
+8. **Remove `uv.lock`** — forces the daemon to use `uv pip install -r requirements.txt` instead of `uv sync`, because uv 0.9.26 cannot resolve transitive dependencies from local wheels alone with `no-index=true`
+9. **Package** using `dify-plugin-<os>-<arch>` binary from the repo root
 
 ## Platform Binaries
 
@@ -61,6 +62,6 @@ Override CMD for different plugins. The Dockerfile uses Chinese mirrors (Huawei 
 ## Key Constraints
 
 - Python 3.12 is required (matching `dify-plugin-daemon`). If system Python is 3.14+, the script falls back to `python3.12` or `python3.13`.
-- The ordering of dependency processing steps is critical: strip dependency-groups → uv lock → export requirements → inject tool.uv → pip download. Changing this order will break offline resolution.
+- The ordering of dependency processing steps is critical: strip dependency-groups → uv lock → export requirements → inject tool.uv → pip download → remove uv.lock → package. Changing this order will break offline resolution or daemon compatibility.
 - The workaround packages (`cffi`, `pycparser`, `colorama`) handle PEP 508 conditional dependency issues in older daemon/uv versions.
 - macOS vs Linux differences are handled with conditional `sed -i` syntax (macOS requires a backup suffix).

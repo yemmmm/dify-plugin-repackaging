@@ -224,14 +224,11 @@ repackage(){
 		local PYFILE="$1"
 		[ -f "$PYFILE" ] || return 0
 	awk '
-		BEGIN { in_uv=0; saw_uv=0; saw_find=0; saw_pre=0 }
-		function print_missing(){
-			if (!saw_find) print "find-links = [\"./wheels\"]"
-			if (!saw_pre) print "prerelease = \"allow\""
-		}
-		/^[ \t]*\[tool\.uv\][ \t]*$/ { saw_uv=1; in_uv=1; saw_find=0; saw_pre=0; print; next }
+		BEGIN { in_uv=0; saw_uv=0; saw_no=0; saw_find=0; saw_pre=0 }
+		function print_missing(){ if (!saw_no) print "no-index = true"; if (!saw_find) print "find-links = [\"./wheels\"]"; if (!saw_pre) print "prerelease = \"allow\"" }
+		/^[ \t]*\[tool\.uv\][ \t]*$/ { saw_uv=1; in_uv=1; saw_no=0; saw_find=0; saw_pre=0; print; next }
 		{ if (in_uv && $0 ~ /^[ \t]*\[/) { print_missing(); in_uv=0 } }
-		{ if (in_uv && $0 ~ /^[ \t]*no-index[ \t]*=/) { next } }
+		{ if (in_uv && $0 ~ /^[ \t]*no-index[ \t]*=/) { print "no-index = true"; saw_no=1; next } }
 		{ if (in_uv && $0 ~ /^[ \t]*find-links[ \t]*=/) { print "find-links = [\"./wheels\"]"; saw_find=1; next } }
 		{ if (in_uv && $0 ~ /^[ \t]*prerelease[ \t]*=/) { print "prerelease = \"allow\""; saw_pre=1; next } }
 		{ print }
@@ -240,12 +237,13 @@ repackage(){
 			if (!saw_uv) {
 				print ""
 				print "[tool.uv]"
+				print "no-index = true"
 				print "find-links = [\"./wheels\"]"
 				print "prerelease = \"allow\""
 			}
 		}
 		' "$PYFILE" > "$PYFILE.tmp" && mv "$PYFILE.tmp" "$PYFILE"
-		echo "Injected [tool.uv] into $PYFILE (find-links only, no no-index)"
+		echo "Injected [tool.uv] into $PYFILE"
 	}
 
 	if python3 -m pip --version &> /dev/null 2>&1; then
@@ -452,12 +450,20 @@ PY
 	fi
 	echo "✓ requirements.txt updated for offline mode"
 
+	# Remove uv.lock to force the daemon to fall back to
+	# "uv pip install -r requirements.txt" instead of "uv sync".
+	# uv 0.9.26 in the daemon cannot resolve transitive dependencies
+	# from local wheels alone when no-index=true, so we avoid uv sync
+	# entirely and rely on requirements.txt for offline installation.
+	rm -f "${CURR_DIR}/${PACKAGE_NAME}/uv.lock"
+	echo "✓ removed uv.lock (daemon will use requirements.txt)"
+
 	# ============================================
 	# Step 5: Package the plugin
 	# ============================================
 	echo ""
 	echo "=========================================="
-	echo "Step 4: Packaging plugin"
+	echo "Step 5: Packaging plugin"
 	echo "=========================================="
 
 	cd ${CURR_DIR} || exit 1
