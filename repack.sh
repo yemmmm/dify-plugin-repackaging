@@ -60,12 +60,12 @@ ARGS=()
 if [[ "$ARM_FLAG" -eq 1 ]]; then
 	ARCH=$(uname -m)
 	if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then
-		ARGS+=(-p manylinux2014_aarch64 -s offline)
+		ARGS+=(-p manylinux_2_24_aarch64 -s offline)
 	else
-		ARGS+=(-p manylinux2014_aarch64 -s offline-arm)
+		ARGS+=(-p manylinux_2_24_aarch64 -s offline-arm)
 	fi
 else
-	ARGS+=(-p manylinux2014_x86_64 -s offline)
+	ARGS+=(-p manylinux_2_24_x86_64 -s offline)
 fi
 
 ARGS+=(url "$URL")
